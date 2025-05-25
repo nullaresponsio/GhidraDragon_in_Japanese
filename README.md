@@ -1,0 +1,1 @@
+implement in depth the rest of ghidra as much as possible:  

@@ -1,0 +1,22 @@
+
+{
+  "manifest_version": 3,
+  "name": "British vs American English Analyzer",
+  "version": "1.0",
+  "description": "Analyzes page for British or American English exclusive words",
+  "permissions": ["activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
