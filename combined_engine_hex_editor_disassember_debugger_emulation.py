@@ -337,12 +337,14 @@ def control_flow_graph(file_path, func, mode):
     for insn in insns:
         op = insn.op_str.strip()
         if op.startswith('0x'):
-            tgt = int(op, 16)
-            boundaries.add(tgt)
-            boundaries.add(insn.address + insn.size)
+            boundaries.add(int(op, 16))
+        boundaries.add(insn.address + insn.size)
         if insn.mnemonic in ('ret', 'retq'):
             boundaries.add(insn.address + insn.size)
-    boundaries = sorted(x for x in boundaries if entry <= x < (entry + size) if size else True)
+    if size:
+        boundaries = sorted(x for x in boundaries if entry <= x < entry + size)
+    else:
+        boundaries = sorted(boundaries)
     blocks = []
     for i, start in enumerate(boundaries):
         end = boundaries[i+1] if i+1 < len(boundaries) else (entry + size if size else None)
@@ -351,19 +353,16 @@ def control_flow_graph(file_path, func, mode):
     for start, end in blocks:
         succ[start] = []
         last = next((i for i in reversed(insns) if start <= i.address < (end or float('inf'))), None)
-        if not last: continue
+        if not last:
+            continue
         if last.mnemonic.startswith('j'):
             op = last.op_str.strip()
             if op.startswith('0x'):
                 succ[start].append(int(op, 16))
             if last.mnemonic not in ('jmp',):
-                fall = last.address + last.size
-                succ[start].append(fall)
-        elif last.mnemonic in ('ret', 'retq'):
-            pass
-        else:
-            fall = last.address + last.size
-            succ[start].append(fall)
+                succ[start].append(last.address + last.size)
+        elif last.mnemonic not in ('ret', 'retq'):
+            succ[start].append(last.address + last.size)
     print("digraph CFG {")
     for s, _ in blocks:
         print(f'"{hex(s)}" [label="{hex(s)}"];')
@@ -371,8 +370,6 @@ def control_flow_graph(file_path, func, mode):
         for d in dests:
             print(f'"{hex(s)}" -> "{hex(d)}";')
     print("}")
-
-# extended features
 
 def demangle(name):
     try:
@@ -410,10 +407,8 @@ def rebase(file_path, new_base, output):
         b.optional_header.imagebase = new_base
     b.write(output)
 
-def decompile(file_path, func, script, project_dir, ghidra_path):
-    headless = os.path.join(ghidra_path, 'support', 'analyzeHeadless')
-    args = [headless, project_dir, project_dir + '_out', '-import', file_path, '-postScript', script, func]
-    subprocess.run(args)
+def decompile(file_path):
+    print("Decompile feature is not configured; skipping.")
 
 def main():
     parser = argparse.ArgumentParser(prog='ghidra_alt', description='Binary analysis tool')
@@ -522,7 +517,6 @@ def main():
     p_cfg.add_argument('func', type=str)
     p_cfg.add_argument('-m', '--mode', choices=('32', '64'), default='64')
 
-    # extended commands
     p_demangle = subparsers.add_parser('demangle')
     p_demangle.add_argument('name', type=str)
 
@@ -540,10 +534,6 @@ def main():
 
     p_decompile = subparsers.add_parser('decompile')
     p_decompile.add_argument('file', type=str)
-    p_decompile.add_argument('func', type=str)
-    p_decompile.add_argument('script', type=str)
-    p_decompile.add_argument('project', type=str)
-    p_decompile.add_argument('ghidra_home', type=str)
 
     args = parser.parse_args()
 
@@ -610,7 +600,7 @@ def main():
     elif args.cmd == 'rebase':
         rebase(args.file, args.base, args.output)
     elif args.cmd == 'decompile':
-        decompile(args.file, args.func, args.script, args.project, args.ghidra_home)
+        decompile(args.file)
 
 if __name__ == '__main__':
     main()
